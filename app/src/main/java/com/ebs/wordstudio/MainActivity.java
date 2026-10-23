@@ -20,7 +20,7 @@ import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int OPEN=11, SAVE_AS=12;
-    private final int ink=Color.rgb(236,241,251), muted=Color.rgb(150,163,187), bg=Color.rgb(11,17,31), surface=Color.rgb(24,33,52), accent=Color.rgb(92,130,255);
+    private final int ink=Color.rgb(35,47,63), muted=Color.rgb(103,118,135), bg=Color.rgb(246,248,251), surface=Color.rgb(231,236,245), accent=Color.rgb(48,94,202);
     private EditText editor;
     private TextView filenameLabel, counter, state;
     private Uri currentUri;
@@ -29,7 +29,7 @@ public class MainActivity extends Activity {
     private float fontSize=18;
     private LinearLayout root;
     @Override public void onCreate(Bundle saved) {
-        super.onCreate(saved);getWindow().setStatusBarColor(bg);getWindow().setNavigationBarColor(bg);
+        super.onCreate(saved);getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);getWindow().setNavigationBarColor(bg);
         createUi();
         if (getIntent()!=null && Intent.ACTION_VIEW.equals(getIntent().getAction()) && getIntent().getData()!=null) openUri(getIntent().getData());
     }
@@ -37,29 +37,89 @@ public class MainActivity extends Activity {
     private GradientDrawable shape(int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));return d;}
     private TextView text(String s,int sp,boolean bold,int color){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setTextColor(color);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);t.setGravity(Gravity.CENTER_VERTICAL);return t;}
     private void createUi() {
-        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(17),dp(12),dp(17),dp(12));root.setBackgroundColor(bg);setContentView(root);
-        LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);root.addView(top,new LinearLayout.LayoutParams(-1,dp(60)));
-        ImageView appIcon=new ImageView(this);appIcon.setImageResource(R.drawable.ebs_app_icon);top.addView(appIcon,new LinearLayout.LayoutParams(dp(46),dp(46)));
-        LinearLayout titleBox=new LinearLayout(this);titleBox.setOrientation(LinearLayout.VERTICAL);titleBox.setPadding(dp(12),0,0,0);top.addView(titleBox,new LinearLayout.LayoutParams(0,-2,1));
-        titleBox.addView(text("EBS WORD STUDIO",18,true,ink));
-        titleBox.addView(text("Belgeleriniz, her zaman yanınızda",11,false,muted));
-        TextView plus=button("+",surface);top.addView(plus,new LinearLayout.LayoutParams(dp(44),dp(43)));plus.setOnClickListener(v->newDocument());
-        ImageView brandLogo=new ImageView(this);brandLogo.setImageResource(R.drawable.ebs_logo);brandLogo.setAdjustViewBounds(true);LinearLayout.LayoutParams lpLogo=new LinearLayout.LayoutParams(-1,-2);lpLogo.topMargin=dp(10);root.addView(brandLogo,lpLogo);
-        LinearLayout docCard=new LinearLayout(this);docCard.setOrientation(LinearLayout.VERTICAL);docCard.setPadding(dp(17),dp(12),dp(17),dp(13));docCard.setBackground(shape(surface,17));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.setMargins(0,dp(15),0,dp(12));root.addView(docCard,cp);
-        filenameLabel=text(filename,16,true,ink);filenameLabel.setSingleLine(true);filenameLabel.setEllipsize(TextUtils.TruncateAt.MIDDLE);docCard.addView(filenameLabel);
-        state=text("●  Yeni belge  ·  DOCX / TXT / RTF / HTML / ODT",12,false,muted);LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.topMargin=dp(5);docCard.addView(state,sp);
-        LinearLayout actions=new LinearLayout(this);root.addView(actions,new LinearLayout.LayoutParams(-1,dp(49)));
-        addAction(actions,"Aç",accent,()->pickOpen());addAction(actions,"Kaydet",Color.rgb(34,138,108),()->save(false));addAction(actions,"Farklı Kaydet",surface,()->save(true));
-        LinearLayout toolbar=new LinearLayout(this);toolbar.setGravity(Gravity.CENTER_VERTICAL);LinearLayout.LayoutParams tb=new LinearLayout.LayoutParams(-1,dp(54));tb.topMargin=dp(12);root.addView(toolbar,tb);
-        TextView editLabel=text("DÜZENLEYİCİ",11,true,muted);toolbar.addView(editLabel,new LinearLayout.LayoutParams(0,-2,1));
-        smallAction(toolbar,"A−",()->resize(-2));smallAction(toolbar,"A+",()->resize(2));smallAction(toolbar,"Kopyala",()->copy());
-        editor=new EditText(this);editor.setTextColor(ink);editor.setHintTextColor(muted);editor.setHint("Yazmaya başlayın veya bir Word dosyası açın…");editor.setTextSize(fontSize);editor.setGravity(Gravity.TOP|Gravity.START);editor.setPadding(dp(18),dp(19),dp(18),dp(19));editor.setBackground(shape(Color.rgb(29,39,58),18));editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE|android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);editor.setSingleLine(false);editor.setHorizontallyScrolling(false);editor.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
-        LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,0,1);ep.bottomMargin=dp(12);root.addView(editor,ep);
-        editor.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int c,int a){}public void onTextChanged(CharSequence s,int st,int before,int count){if(!loading){changed=true;updateHeader();}updateCount();}public void afterTextChanged(Editable e){}});
-        LinearLayout bottom=new LinearLayout(this);bottom.setGravity(Gravity.CENTER_VERTICAL);root.addView(bottom,new LinearLayout.LayoutParams(-1,dp(29)));
-        counter=text("0 kelime · 0 karakter",12,false,muted);bottom.addView(counter,new LinearLayout.LayoutParams(0,-2,1));
-        TextView info=text("ÇEVRİMDIŞI  •  YEREL",10,true,Color.rgb(83,190,151));bottom.addView(info);
+        // Responsive, image-free document workspace. The editor gets every remaining pixel.
+        root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(bg);
+        root.setPadding(dp(9),dp(6),dp(9),dp(5));
+        setContentView(root);
+
+        LinearLayout header=new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(header,new LinearLayout.LayoutParams(-1,dp(42)));
+        TextView appName=text("EBS WORD STUDIO",15,true,ink);
+        header.addView(appName,new LinearLayout.LayoutParams(0,-1,1));
+        TextView newButton=button("+ Yeni",surface);
+        newButton.setPadding(dp(14),0,dp(14),0);
+        header.addView(newButton,new LinearLayout.LayoutParams(-2,dp(36)));
+        newButton.setOnClickListener(v->newDocument());
+
+        LinearLayout fileRow=new LinearLayout(this);
+        fileRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams fr=new LinearLayout.LayoutParams(-1,dp(35));
+        root.addView(fileRow,fr);
+        filenameLabel=text(filename,14,true,ink);
+        filenameLabel.setSingleLine(true);
+        filenameLabel.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+        fileRow.addView(filenameLabel,new LinearLayout.LayoutParams(0,-1,1));
+        state=text("Yeni belge",11,false,muted);
+        state.setSingleLine(true);
+        fileRow.addView(state,new LinearLayout.LayoutParams(-2,-1));
+
+        // Scrollable actions remain usable on narrow phones and in landscape.
+        HorizontalScrollView scroll=new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        root.addView(scroll,new LinearLayout.LayoutParams(-1,dp(49)));
+        LinearLayout actions=new LinearLayout(this);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        scroll.addView(actions,new HorizontalScrollView.LayoutParams(-2,-1));
+        toolbarAction(actions,"Aç",accent,()->pickOpen());
+        toolbarAction(actions,"Kaydet",Color.rgb(33,126,92),()->save(false));
+        toolbarAction(actions,"Farklı Kaydet",surface,()->save(true));
+        toolbarAction(actions,"A−",surface,()->resize(-2));
+        toolbarAction(actions,"A+",surface,()->resize(2));
+        toolbarAction(actions,"Kopyala",surface,()->copy());
+
+        editor=new EditText(this);
+        editor.setTextColor(ink);
+        editor.setHintTextColor(muted);
+        editor.setHint("Word / DOCX belgesini açın veya metninizi buraya yazın…");
+        editor.setTextSize(fontSize);
+        editor.setGravity(Gravity.TOP|Gravity.START);
+        editor.setPadding(dp(15),dp(14),dp(15),dp(14));
+        editor.setBackground(shape(Color.WHITE,9));
+        editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE|android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        editor.setSingleLine(false);
+        editor.setHorizontallyScrolling(false);
+        editor.setVerticalScrollBarEnabled(true);
+        editor.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,0,1);
+        ep.topMargin=dp(4);
+        root.addView(editor,ep);
+        editor.addTextChangedListener(new TextWatcher(){
+            public void beforeTextChanged(CharSequence s,int st,int c,int a){}
+            public void onTextChanged(CharSequence s,int st,int before,int count){if(!loading){changed=true;updateHeader();}updateCount();}
+            public void afterTextChanged(Editable e){}
+        });
+
+        LinearLayout footer=new LinearLayout(this);
+        footer.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(footer,new LinearLayout.LayoutParams(-1,dp(27)));
+        counter=text("0 kelime · 0 karakter",11,false,muted);
+        footer.addView(counter,new LinearLayout.LayoutParams(0,-1,1));
+        TextView info=text("YEREL / ÇEVRİMDIŞI",10,true,Color.rgb(33,126,92));
+        footer.addView(info);
         updateCount();
+    }
+    private void toolbarAction(LinearLayout row,String title,int color,Runnable action){
+        TextView t=button(title,color);
+        t.setTextColor((color==accent||color==Color.rgb(33,126,92))?Color.WHITE:ink);
+        t.setTextSize(12);
+        t.setPadding(dp(13),0,dp(13),0);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-2,dp(36));
+        p.rightMargin=dp(6);
+        row.addView(t,p);
+        t.setOnClickListener(v->action.run());
     }
     private TextView button(String label,int color){TextView t=text(label,13,true,ink);t.setGravity(Gravity.CENTER);t.setBackground(shape(color,12));return t;}
     private void addAction(LinearLayout row,String name,int color,Runnable action){TextView b=button(name,color);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,name.equals("Farklı Kaydet")?1.5f:1f);p.rightMargin=dp(7);row.addView(b,p);b.setOnClickListener(v->action.run());}
